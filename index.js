@@ -1,69 +1,112 @@
-const lib = require('messagemedia-webhooks-sdk');
+const config = require("./config.js");
+const token = config.token, apiUrl = config.apiUrl;
+const app = require('express')();
+const bodyParser = require('body-parser');
+const fetch = require('node-fetch');
+app.use(bodyParser.json());
 
-function setup(){
-  var controller;
-  // Configuration parameters and credentials
-  lib.Configuration.basicAuthUserName = "API_KEY";
-  lib.Configuration.basicAuthPassword = "API_SECRET";
-  controller = lib.WebhooksController;
-  return controller;
+function loging(req, res, next) {
+  var logger = require('./middlewares/logger_winston');
+  let appName = 'Mycoplan';
+  let requestTime = new Date(Date.now());
+  let request = {
+    method: req.method,
+    url: req.url,
+    body: req.body
+  }
+  console.log(request);
+
+  let tmp = res.send;
+  res.send = function (data) {
+    let executionTime = (new Date() - requestTime) + 'ms';
+    let response = {
+      statusCode: res.statusCode,
+      body: (data) ? JSON.parse(data) : null
+    };
+    let log = {
+      appName,
+      requestTime: dateFormat(requestTime, "yyyy-mm-dd HH:MM:ss"),
+      executionTime,
+      request,
+      response
+    }
+    // log level error: 0, warn: 1, info: 2, http: 3, verbose: 4, debug: 5, silly: 6
+    logger.log('info', JSON.stringify(log));
+    tmp.apply(res, arguments);
+  }
+  next();
 }
 
-function createWebhook(){
-  var controller = setup();
-  var body = new lib.CreateWebhookRequest({
-      "url": "http://webhook.com",
-      "method": "POST",
-      "encoding": "JSON",
-      "events": [
-          "RECEIVED_SMS"
-      ],
-      "template": "{\"id\":\"$mtId\",\"status\":\"$statusCode\"}"
-  });
+app.use(loging);
 
-  controller.createWebhook(body, function(error, response, context) {
-      console.log(response);
-  });
+process.on('unhandledRejection', err => {
+    console.log(err)
+});	
+
+app.get('/', function (req, res) {
+    res.send("It's working.");
+}); 
+
+app.post('/webhook', async function (req, res) {
+    const data = req.body;
+    for (var i in data.messages) {
+        const author = data.messages[i].author;
+        const body = data.messages[i].body;
+        const chatId = data.messages[i].chatId;
+        const senderName = data.messages[i].senderName;
+        if(data.messages[i].fromMe)return;
+        
+        if(/help/.test(body)){
+            const text = `${senderName}, this is a demo bot for https://chat-api.com/.
+            Commands:
+            1. chatId - view the current chat ID
+            2. file [pdf/jpg/doc/mp3] - get a file
+            3. ptt - get a voice message
+            4. geo - get a location
+            5. group - create a group with you and the bot`;
+            await apiChatApi('message', {chatId: chatId, body: text});
+        }else if(/chatId/.test(body)){
+            await apiChatApi('message', {chatId: chatId, body: chatId});
+        }else if(/file (pdf|jpg|doc|mp3)/.test(body)){
+            const fileType = body.match(/file (pdf|jpg|doc|mp3)/)[1];
+            const files = {
+                doc: "http://domain.com/tra.docx",
+                jpg: "http://domain.com/tra.jpg",
+                mp3: "http://domain.com/tra.mp3",
+                pdf: "http://domain.com/tra.pdf"
+            };
+            var dataFile = {
+                phone: author,
+                body: files[fileType],
+                filename: `File *.${fileType}`
+            };
+            if(fileType == "jpg")dataFile['caption'] = "Text under the photo.";
+            await apiChatApi('sendFile', dataFile);
+        }else if(/ptt/.test(body)){            
+            await apiChatApi('sendAudio', {audio: "http://domain.com/tra.ogg", chatId: chatId});
+        }else if(/geo/.test(body)){
+            await apiChatApi('sendLocation', {lat: 51.178843, lng: -1.826210, address: 'Stonehenge', chatId: chatId});
+        }else if(/group/.test(body)){
+            let arrayPhones = [ author.replace("@c.us","") ];
+            await apiChatApi('group', {groupName: 'Bot group', phones: arrayPhones, messageText: 'Welcome to the new group!'});
+        }
+    }
+    res.send('Ok');
+});
+
+app.listen(80, function () {
+    console.log('Listening on port 80..');
+});
+
+async function apiChatApi(method, params){
+    const options = {};
+    options['method'] = "POST";
+    options['body'] = JSON.stringify(params);
+    options['headers'] = { 'Content-Type': 'application/json' };
+    
+    const url = `${apiUrl}/${method}?token=${token}`; 
+    
+    const apiResponse = await fetch(url, options);
+    const jsonResponse = await apiResponse.json();
+    return jsonResponse;
 }
-
-function retrieveWebhook(){
-  var controller = setup();
-  var page = 0;
-  var pageSize = 0;
-
-  controller.retrieveWebhook(page, pageSize, function(error, response, context) {
-      console.log(response);
-  });
-}
-
-function updateWebhook(){
-  var controller = setup();
-  var webhookId = "WEBHOOK_ID";
-
-  var body = new lib.UpdateWebhookRequest({
-      "url": "https://myurl.com",
-      "method": "POST",
-      "encoding": "FORM_ENCODED",
-      "events": [
-          "ENROUTE_DR"
-      ],
-      "template": "{\"id\":\"$mtId\", \"status\":\"$statusCode\"}"
-  });
-
-  controller.updateWebhook(webhookId, body, function(error, response, context) {
-      console.log(response);
-  });
-}
-
-function deleteWebhook(){
-  var controller = setup();
-
-  var webhookId = "WEBHOOK_ID";
-
-  controller.deleteWebhook(webhookId, function(error, response, context) {
-      console.log(response);
-  });
-}
-
-// Call the functions here
-createWebhook();
