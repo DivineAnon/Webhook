@@ -45,7 +45,7 @@ process.on('unhandledRejection', err => {
   console.log(err)
 });	
 
-app.get('/receive-webhook', (req, res) => {
+app.post('/receive-webhook', (req, res) => {
   res.send("It's working.");
 });
 
