@@ -37,4 +37,4 @@ app.post('/add-webhook', (req, res) => {
   res.json(data);
 });
 
-app.listen(3000, () => console.log('[ChatBot] Webhook is listening'));
+app.listen(3000, () => console.log('[Testing] Webhook is listening'));
