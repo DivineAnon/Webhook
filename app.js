@@ -1,6 +1,7 @@
 'use strict';
 
 const config = require("./config.js");
+const token = 'mcphooks';
 const token = config.token, apiUrl = config.apiUrl;
 const app = require('express')();
 const bodyParser = require('body-parser');
@@ -46,7 +47,10 @@ process.on('unhandledRejection', err => {
 });	
 
 app.post('/receive-webhook', (req, res) => {
-  res.send("It's working.");
+  if(req.query.token !== token){
+    return res.sendStatus(401);
+  }
+  return res.end(req.body);
 });
 
 app.post('/add-webhook', async function (req, res) {
