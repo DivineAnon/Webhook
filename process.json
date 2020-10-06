@@ -1,0 +1,9 @@
+{
+    "script": "bin/www",
+    "watch": true,
+    "ignore_watch": ["assets"],
+    "watch_options": {
+        "followSymlinks": false
+    },
+    "name": "WEBSERVICE_INSW"
+}

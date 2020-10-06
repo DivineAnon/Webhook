@@ -1,0 +1,95 @@
+image: node:12.18.0
+
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - node_modules/
+
+stages:
+  - create-env-dev
+  - create-env
+  - test-app
+  - build-image
+  - deploy-develop
+  - clean-dev
+  
+variables:
+  CONTAINER_IMAGE: inswapi
+  REPO_IMAGE_DEV: ${URL_REGISTRY}/insw_develop/${CONTAINER_IMAGE}
+  
+create env dev:
+  stage: create-env-dev
+  only:
+    - develop
+  tags:
+    - develop
+  script:
+    - touch .env
+    - echo "${ENV_DEV}" >> .env
+  artifacts:
+    paths:
+      - ./
+
+test app:
+  stage: test-app
+  only:
+    - develop
+    - master
+  tags:
+    - develop
+    - master
+  script:
+    - npm install
+    - npm run start &
+    - sleep 3
+    - curl "http://localhost:3000" | tac | tac | grep -q "message"      
+
+build image dev:
+  stage: build-image
+  only: 
+    - develop
+    - master
+  tags:
+    - develop
+    - master
+  image: docker:19.03.0-dind
+  script:
+    - docker login -u ${DOCKER_USER} -p ${DOCKER_PASSWORD} https://${URL_REGISTRY}
+    - docker pull ${REPO_IMAGE_DEV}:latest || true
+    - docker build --cache-from ${REPO_IMAGE_DEV}:latest -t ${CONTAINER_IMAGE} .
+    - docker tag ${CONTAINER_IMAGE} ${REPO_IMAGE_DEV}:latest
+    - docker tag ${CONTAINER_IMAGE} ${REPO_IMAGE_DEV}:${CI_COMMIT_SHORT_SHA}
+    - docker push ${REPO_IMAGE_DEV}:latest
+    - docker push ${REPO_IMAGE_DEV}:${CI_COMMIT_SHORT_SHA}
+deploy to develop:
+  stage: deploy-develop
+  only:
+    - develop
+    - master
+  tags:
+    - develop
+    - master
+  image: dtzar/helm-kubectl
+  script:
+    - kubectl config set-cluster k8s --server="${SERVER_API_KUBERNETES}"
+    - kubectl config set clusters.k8s.certificate-authority-data ${CA_DATA_KUBERNETES}
+    - kubectl config set-credentials gitlab --token="${USER_TOKEN_KUBERNETES}"
+    - kubectl config set-context default --cluster=k8s --user=gitlab
+    - kubectl config use-context default
+    - sed -i "s|<ImageDocker>|${REPO_IMAGE_DEV}:${CI_COMMIT_SHORT_SHA}|g" ./kubernetes/deployment.yaml
+    - kubectl apply -n dev -f ./kubernetes/deployment.yaml
+
+clean dev:
+  stage: clean-dev
+  only:
+    - develop
+    - master
+  tags:
+    - develop
+    - master
+  image: docker:19.03.0-dind
+  script:
+    - docker builder prune -f
+    - docker rmi ${REPO_IMAGE_DEV}:${CI_COMMIT_SHORT_SHA}
+    - docker rmi ${REPO_IMAGE_DEV}:latest
+    - docker rmi ${CONTAINER_IMAGE}:latest

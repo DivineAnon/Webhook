@@ -1,0 +1,10 @@
+{
+    "development": {
+        "username": "posgres",
+        "password": "custom",
+        "database": "insw_ii",
+        "host": "10.8.3.198",
+        "port": 5432,
+        "dialect": "postgres"
+    }
+}
