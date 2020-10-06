@@ -1,8 +1,7 @@
 'use strict';
 
 const config = require("./config.js");
-const token = 'mcphooks';
-const token = config.token, apiUrl = config.apiUrl;
+const token = 'mcphooks', apiUrl = config.apiUrl;
 const app = require('express')();
 const bodyParser = require('body-parser');
 const fetch = require('node-fetch');
