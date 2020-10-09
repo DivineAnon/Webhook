@@ -46,7 +46,7 @@ process.on('unhandledRejection', err => {
 });	
 
 app.post('/receive-webhook', (req, res) => {
-  if(req.query.token !== token){
+  if(req.body !== token){
     return res.sendStatus(401);
   }
   return res.end(req.body);
