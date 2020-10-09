@@ -1,5 +1,3 @@
-'use strict';
-
 const config = require("./config.js");
 const token = 'mcphooks', apiUrl = config.apiUrl;
 var express = require('express');
@@ -58,7 +56,11 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.post('/receive-webhook', (req, res) => {
-  return res.status(200).send(req.body);
+  return res.status(200).json({
+    code : '200',
+    message: 'Berhasil Mendapatkan Payload',
+    data: req.body
+  });
 });
 
 app.post('/add-webhook', async function (req, res) {
