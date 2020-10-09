@@ -7,40 +7,6 @@ const bodyParser = require('body-parser');
 const fetch = require('node-fetch');
 app.use(bodyParser.json());
 
-function loging(req, res, next) {
-  var logger = require('./middlewares/logger_winston');
-  let appName = 'Mycoplan';
-  let requestTime = new Date(Date.now());
-  let request = {
-    method: req.method,
-    url: req.url,
-    body: req.body
-  }
-  console.log(request);
-
-  let tmp = res.send;
-  res.send = function (data) {
-    let executionTime = (new Date() - requestTime) + 'ms';
-    let response = {
-      statusCode: res.statusCode,
-      body: (data) ? JSON.parse(data) : null
-    };
-    let log = {
-      appName,
-      requestTime: dateFormat(requestTime, "yyyy-mm-dd HH:MM:ss"),
-      executionTime,
-      request,
-      response
-    }
-    // log level error: 0, warn: 1, info: 2, http: 3, verbose: 4, debug: 5, silly: 6
-    logger.log('info', JSON.stringify(log));
-    tmp.apply(res, arguments);
-  }
-  next();
-}
-
-app.use(loging);
-
 process.on('unhandledRejection', err => {
   console.log(err)
 });	
